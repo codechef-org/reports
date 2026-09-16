@@ -1,2 +1,2 @@
 # reports
-Static College Reports
+College Reports
