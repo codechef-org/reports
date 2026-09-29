@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>CU Academic Progress Report</title>
+<link rel="icon" type="image/png" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -145,13 +146,6 @@
   input[type=search]{font:inherit;font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);min-width:240px}
   .footnote{font-size:12px;color:var(--ink-muted);border-top:1px solid var(--border-light);padding-top:14px;line-height:1.6}
 
-  /* Click-to-download CSV: any element with data-dl downloads its own data */
-  [data-dl]{cursor:pointer;position:relative}
-  [data-dl]:hover{outline:1.5px solid var(--accent);outline-offset:-1px;border-radius:8px}
-  [data-dl]::after{content:'⬇ CSV';position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;letter-spacing:.02em;
-    color:var(--ink-faint);background:var(--legend-bg);border:1px solid var(--border-light);padding:1px 5px;border-radius:4px;
-    opacity:0;transition:opacity .15s;pointer-events:none}
-  [data-dl]:hover::after{opacity:1;color:var(--accent);border-color:var(--accent)}
   .reset:disabled{opacity:.4;cursor:not-allowed}
   .uTools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   #f-Faculty{width:280px}
@@ -306,8 +300,7 @@ function buildFaculty(){
     avail.map(([fc,i])=>`<option value="${i}" ${st.fac===String(i)?'selected':''}>${esc(fc.n)} · ${fc.b} · ${c[i]}</option>`).join('')
 }
 
-/* ---------- CSV download: any element with data-dl downloads its own data on click ---------- */
-let DL_SEQ=0;const DL_REG={};
+/* ---------- downloads ---------- */
 const filterSlug=()=>(filterLabel().join('-')||'All-CU').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-').slice(0,60);
 const csvEsc=v=>{const s=v==null?'':String(v);return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
 function downloadCSV(filename,headers,rowsArr){
@@ -317,28 +310,16 @@ function downloadCSV(filename,headers,rowsArr){
   const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-// registers a click-to-download CSV for one element and returns the attributes to splice into its opening tag;
-// get() -> [headers, rows] runs only on click, so a render does not build every list up front
 const slug=s=>String(s).replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-').toLowerCase().slice(0,50)||'data';
-function regDL(name,get){
-  const id='dl'+(DL_SEQ++);
-  DL_REG[id]=()=>{const [h,rs]=get();downloadCSV(`${slug(name)}_${filterSlug()}.csv`,h,rs)};
-  return ` data-dl="${id}" title="Click to download CSV"`;
-}
-document.body.addEventListener('click',e=>{
-  const el=e.target.closest('[data-dl]');
-  if(el&&DL_REG[el.dataset.dl])DL_REG[el.dataset.dl]();
-});
 
 /* ---------- small builders ---------- */
-// tile(label, value, get): get() -> [headers, rows] is the detail behind the number (the CSV builders are near
-// the end, under "CSV exports"); a tile without one downloads its own label and value
-const tile=(l,v,get)=>`<div class="tile"${regDL(l,get||(()=>[['Metric','Value'],[[l,v]]]))}><span class="l">${l}</span><span class="v">${v}</span></div>`;
+const tile=(l,v)=>`<div class="tile"><span class="l">${l}</span><span class="v">${v}</span></div>`;
 function levelRow(label,val,total,color,sub){
   const w=total?Math.max(val?1:0,val/total*100):0;
   return `<div class="levelRow"><span class="levelRowLabel" title="${esc(label)}">${esc(label)}</span><div class="levelRowTrack"><div class="levelRowFill" style="width:${w}%;background:${color}"></div></div><span class="levelRowCount">${fmt(val)} <span>${sub??p1(pct(val,total))}</span></span></div>`}
-const card=(title,sub,body,get)=>`<div class="card"${get?regDL(title,get):''}><div class="cardHead"><p class="cardTitle">${title}</p><span class="cardSub">${sub||''}</span></div>${body}</div>`;
-const head=(title,note)=>`<div class="secHead"><h3 class="sectionTitle">${title}</h3><span class="secNote">${note||''}</span></div>`;
+const card=(title,sub,body)=>`<div class="card"><div class="cardHead"><p class="cardTitle">${title}</p><span class="cardSub">${sub||''}</span></div>${body}</div>`;
+// section header; with a section id it gets that section's Download Excel button (sectionSheets() below)
+const head=(title,note,id)=>`<div class="secHead"><h3 class="sectionTitle">${title}</h3><div class="uTools"><span class="secNote">${note||''}</span>${id?`<button class="reset secDl" type="button" data-sec="${id}" title="This section's numbers and the rows behind them, one sheet each">Download Excel</button>`:''}</div></div>`;
 const ICONS={
   learn:'<svg viewBox="0 0 32 32" fill="none"><path d="M4 9l12-5 12 5-12 5-12-5z" fill="white"/><path d="M9 12v7c0 2 3.2 4 7 4s7-2 7-4v-7" stroke="white" stroke-width="2.4" fill="none"/><path d="M28 9v8" stroke="white" stroke-width="2.4" stroke-linecap="round"/></svg>',
   practice:'<svg viewBox="0 0 32 32" fill="none"><path d="M10 7 4 16l6 9M22 7l6 9-6 9M18.5 4 13.5 28" stroke="white" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -355,24 +336,22 @@ function pageHeader(f){
 function common(f){
   const n=f.length,act=cnt(f,r=>r.m[0]>0),tot=sum(f,0);
   const b=BUCKETS.map(()=>0);f.forEach(r=>b[r.b]++);
-  document.getElementById('secCommon').innerHTML=head('Consumption','for the current filter')+
+  document.getElementById('secCommon').innerHTML=head('Consumption','for the current filter','secCommon')+
   `<div class="tiles">
-    ${tile('Total students',fmt(n),()=>studentsCSV(byDesc(f,r=>r.m[0])))}
-    ${tile('Solved ≥1 problem',fmt(act),()=>studentsCSV(byDesc(f.filter(r=>r.m[0]>0),r=>r.m[0])))}
-    ${tile('Not started (0 solved)',fmt(n-act),()=>studentsCSV(f.filter(r=>r.m[0]===0)))}
-    ${tile('Never logged in',fmt(cnt(f,neverLoggedIn)),()=>studentsCSV(f.filter(neverLoggedIn),LOGIN_COLS))}
-    ${tile('Total problems solved',fmt(tot),()=>problemsCSV(f))}
-    ${tile('Avg problems / student',(n?tot/n:0).toFixed(1),()=>studentsCSV(byDesc(f,r=>r.m[0])))}
+    ${tile('Total students',fmt(n))}
+    ${tile('Solved ≥1 problem',fmt(act))}
+    ${tile('Not started (0 solved)',fmt(n-act))}
+    ${tile('Never logged in',fmt(cnt(f,neverLoggedIn)))}
+    ${tile('Total problems solved',fmt(tot))}
+    ${tile('Avg problems / student',(n?tot/n:0).toFixed(1))}
     ${(()=>{const xf=xm(f),mins=xs(xf,'est_minutes_30'),ac=xs(xf,'all_ac'),sb=xs(xf,'all_subs');
-      return tile('Active in last 7 days',fmt(cnt(f,r=>aw(r,3)>0)),()=>studentsCSV(f.filter(r=>aw(r,5)>0).sort((a,b)=>aw(b,6).localeCompare(aw(a,6))),RECENT_COLS))+
-      tile('Avg time spent ('+WIN+')',hm(xf.length?mins/xf.length:0),()=>studentsCSV(byDesc(xf,r=>xv(r,'est_minutes_30'))))+
-      tile('Avg accuracy',p1(pct(ac,sb)),()=>studentsCSV(byDesc(xf.filter(r=>xv(r,'all_subs')>0),r=>xv(r,'all_subs'))))})()}
+      return tile('Active in last 7 days',fmt(cnt(f,r=>aw(r,3)>0)))+
+      tile('Avg time spent ('+WIN+')',hm(xf.length?mins/xf.length:0))+
+      tile('Avg accuracy',p1(pct(ac,sb)))})()}
   </div>
   <div class="grid2">
-    ${card('Problems solved distribution','students per range',`<div class="levelRows">${BUCKETS.map((x,i)=>levelRow(x[0]+' problems',b[i],n,BCOL[i])).join('')}</div>`,
-      ()=>studentsCSV(byDesc(f,r=>r.m[0]),[['Range',r=>BUCKETS[r.b][0]+' problems'],...COMMON_COLS]))}
-    ${card('Where problems were solved','% of total problems solved',`<div class="levelRows">${SRC.map(([l,k,c])=>levelRow(l,xs(f,k),xs(f,'all_solved'),c)).join('')}</div>`,
-      ()=>problemsCSV(f,e=>SRC_KEYS.has(e[2]),true))}
+    ${card('Problems solved distribution','students per range',`<div class="levelRows">${BUCKETS.map((x,i)=>levelRow(x[0]+' problems',b[i],n,BCOL[i])).join('')}</div>`)}
+    ${card('Where problems were solved','% of total problems solved',`<div class="levelRows">${SRC.map(([l,k,c])=>levelRow(l,xs(f,k),xs(f,'all_solved'),c)).join('')}</div>`)}
   </div>
 `
 }
@@ -387,7 +366,7 @@ function assignedPaths(title,f,ids){
   const rowsHtml=list.map(o=>{const segs=[['var(--done)',o.c],['var(--started)',o.s],['var(--none)',o.n-o.c-o.s]]
       .map(([col,v])=>`<div class="labSegment" style="width:${pct(v,o.n)}%;background:${col}${col==='var(--none)'?';color:#626774':''}">${v>=8&&pct(v,o.n)>12?fmt(v):''}</div>`).join('');
     return `<div class="labSectionRow" title="${esc(o.name)}: ${o.c} completed, ${o.s} started, ${o.n-o.c-o.s} not started"><div class="labSectionLabel"><span class="labSectionCode">${esc(o.name)}</span><span class="labSectionStudents">${fmt(o.n)} students assigned${o.ids.size>1?' · '+o.ids.size+' versions':''}</span></div><div class="labSectionTrack">${segs}</div><div class="labSectionPct">${pct(o.c+o.s,o.n).toFixed(0)}%</div></div>`}).join('');
-  return `<div class="labProgress"${regDL(title,()=>assignedPathsCSV(f,ids))}><h4 class="labProgressTitle">${title}</h4>
+  return `<div class="labProgress"><h4 class="labProgressTitle">${title}</h4>
     <div class="labLegend"><div class="labLegendItem"><span class="labLegendDot" style="background:var(--done)"></span>Completed</div><div class="labLegendItem"><span class="labLegendDot" style="background:var(--started)"></span>Started</div><div class="labLegendItem"><span class="labLegendDot" style="background:var(--none)"></span>Not started</div><div class="labLegendItem" style="margin-left:auto;color:var(--ink-muted)">% = started</div></div>
     <div class="labSectionList pathList">${rowsHtml||'<div class="emptyState">None of these paths are assigned to students in this filter.</div>'}</div></div>`
 }
@@ -399,8 +378,7 @@ function pathSection(id,sp){
   const att=cnt(f,r=>sp.started(r)>0),comp=cnt(f,r=>sp.completed(r)>0);
   const startRate=pct(att,n),xf=xm(f),solved=xs(xf,key+'_solved'),mins=xs(xf,key+'_minutes_30'),
     ac=xs(xf,key+'_ac'),sb=xs(xf,key+'_subs'),acc=sb?p1(pct(ac,sb)):'—';
-  const cols=pathCols(key,sp.noun,sp.started,sp.completed),kv=k=>r=>xv(r,key+k);
-  const summary=`<div class="labSummary"${regDL(sp.title,()=>studentsCSV(byDesc(f,sp.started),cols))}>
+  const summary=`<div class="labSummary">
       <div class="labSummaryTop"><div class="labIcon" style="background:${sp.color}">${sp.icon}</div>
         <div><p class="labSummaryTitle">${sp.title}</p><span class="labProgressBadge${startRate<50?' warn':''}">${p1(startRate)} started</span></div></div>
       <div class="labMeta">
@@ -411,14 +389,14 @@ function pathSection(id,sp){
         <div><div class="labMetaLabel">Avg accuracy</div><div class="labMetaValue">${acc}</div></div>
         <div><div class="labMetaLabel">Avg time (${WIN})</div><div class="labMetaValue">${hm(n?mins/n:0)}</div></div>
       </div></div>`;
-  document.getElementById(id).innerHTML=head(sp.title,sp.note)+
+  document.getElementById(id).innerHTML=head(sp.title,sp.note,id)+
   `<div class="tiles">
-    ${tile(sp.baseLabel,fmt(n),()=>studentsCSV(byDesc(f,kv('_solved')),cols))}
-    ${tile('Avg problems solved',(n?solved/n:0).toFixed(1),()=>studentsCSV(byDesc(f,kv('_solved')),cols))}
-    ${tile('Total problems solved',fmt(solved),()=>problemsCSV(f,sp.keep))}
-    ${tile('Active in last 7 days',fmt(cnt(f,r=>saw(r,key,0)>0)),()=>studentsCSV(f.filter(r=>saw(r,key,2)>0).sort((a,b)=>String(saw(b,key,3)).localeCompare(saw(a,key,3))),[...secRecentCols(key,sp.noun),...cols]))}
-    ${tile('Avg time spent ('+WIN+')',hm(n?mins/n:0),()=>studentsCSV(byDesc(f,kv('_minutes_30')),cols))}
-    ${tile('Avg accuracy',acc,()=>studentsCSV(byDesc(xf.filter(r=>xv(r,key+'_subs')>0),kv('_subs')),cols))}
+    ${tile(sp.baseLabel,fmt(n))}
+    ${tile('Avg problems solved',(n?solved/n:0).toFixed(1))}
+    ${tile('Total problems solved',fmt(solved))}
+    ${tile('Active in last 7 days',fmt(cnt(f,r=>saw(r,key,0)>0)))}
+    ${tile('Avg time spent ('+WIN+')',hm(n?mins/n:0))}
+    ${tile('Avg accuracy',acc)}
   </div>
   ${sp.list?`<div class="labBlock">${summary}${sp.list}</div>`:''}
   ${sp.charts?sp.charts(f,key):''}`
@@ -444,11 +422,9 @@ function platformCharts(practice,noun){
         <div class="labMeta" style="border-top:1px solid var(--border-light);padding-top:14px;margin-top:4px">
           <div><div class="labMetaLabel">Solved ≥1 problem</div><div class="labMetaValue">${fmt(solvers)}</div></div>
           <div><div class="labMetaLabel">Solved none</div><div class="labMetaValue">${fmt(b[0])} <span style="font-size:12px;color:var(--ink-muted)">${p1(pct(b[0],xf.length))}</span></div></div>
-        </div>`,
-        ()=>studentsCSV(byDesc(xf,r=>xv(r,key+'_solved')),[['Range',r=>{const v=xv(r,key+'_solved')||0;return SOLVED_BUCKETS.find(x=>v<=x[2])[0].replace(' problems','')+' problems'}],...pathCols(key,noun,r=>r.m[practice?3:1],r=>r.m[practice?4:2])]))})()}
+        </div>`)})()}
       ${card('Most started '+noun+' paths','students who started · top 5',`<div class="labLegend" style="margin-bottom:10px"><div class="labLegendItem"><span class="labLegendDot" style="background:var(--done)"></span>Completed</div><div class="labLegendItem"><span class="labLegendDot" style="background:var(--started)"></span>Started</div></div>
-        <div class="labSectionList pathList">${pathRows||'<div class="emptyState">No '+noun+' paths started in this filter.</div>'}</div>`,
-        ()=>pathStartsCSV(f,practice))}
+        <div class="labSectionList pathList">${pathRows||'<div class="emptyState">No '+noun+' paths started in this filter.</div>'}</div>`)}
     </div>`}
 }
 function pathSections(f){
@@ -470,18 +446,16 @@ function contest(f){
   const tAs=new Set(f.flatMap(r=>r.as.map(a=>a[0]))).size;
   const sCp=xs(xf,'src_cp'),sMon=xs(xf,'src_dsa_monday'),sAs=xs(xf,'src_assessment'),sAll=sCp+sMon+sAs;
   const uCp=cnt(xf,r=>cpE(r)>0),uMon=cnt(xf,r=>monE(r)>0),uAs=cnt(xf,r=>asE(r)>0);
-  document.getElementById('secContest').innerHTML=head('Contest / Assessment','CP contests, DSA Mondays &amp; college assessments')+
+  document.getElementById('secContest').innerHTML=head('Contest / Assessment','CP contests, DSA Mondays &amp; college assessments','secContest')+
   `<div class="tiles">
-    ${tile('Total CP contests taken',fmt(tCp),()=>contestEntriesCSV(f,[1,2,3,9]))}
-    ${tile('Total DSA Monday contests taken',fmt(tMon),()=>contestEntriesCSV(f,[14]))}
-    ${tile('Total assessments given',fmt(tAs),()=>assessmentsCSV(f))}
-    ${tile('Total problems solved (all three)',fmt(sAll),()=>problemsCSV(f,e=>THREE.has(e[2]),true))}
+    ${tile('Total CP contests taken',fmt(tCp))}
+    ${tile('Total DSA Monday contests taken',fmt(tMon))}
+    ${tile('Total assessments given',fmt(tAs))}
+    ${tile('Total problems solved (all three)',fmt(sAll))}
   </div>
   <div class="grid2">
-    ${card('Students who took part','% of students in filter',`<div class="levelRows">${levelRow('CP contests',uCp,f.length,'#f59b0b')}${levelRow('DSA Mondays',uMon,f.length,'#9b59b6')}${levelRow('Assessments',uAs,f.length,'#5486EC')}</div>`,
-      ()=>participationCSV(f))}
-    ${card('Problems solved','% of problems solved in all three',`<div class="levelRows">${levelRow('CP contests',sCp,sAll,'#f59b0b')}${levelRow('DSA Mondays',sMon,sAll,'#9b59b6')}${levelRow('Assessments',sAs,sAll,'#5486EC')}</div>`,
-      ()=>problemsCSV(f,e=>THREE.has(e[2]),true))}
+    ${card('Students who took part','% of students in filter',`<div class="levelRows">${levelRow('CP contests',uCp,f.length,'#f59b0b')}${levelRow('DSA Mondays',uMon,f.length,'#9b59b6')}${levelRow('Assessments',uAs,f.length,'#5486EC')}</div>`)}
+    ${card('Problems solved','% of problems solved in all three',`<div class="levelRows">${levelRow('CP contests',sCp,sAll,'#f59b0b')}${levelRow('DSA Mondays',sMon,sAll,'#9b59b6')}${levelRow('Assessments',sAs,sAll,'#5486EC')}</div>`)}
   </div>
   <div class="grid2">
     ${starCard('CodeChef rating stars',xf,'rating')}
@@ -495,8 +469,7 @@ const starOf=v=>STARS.reduce((s,b)=>v>=b[1]?b[0]:s,1);
 function starCard(title,xf,key){
   const rated=xf.filter(r=>xv(r,key)!=null&&xv(r,key)!==''),n=rated.length;
   const c={};rated.forEach(r=>{const b=starOf(xv(r,key));c[b]=(c[b]||0)+1});
-  return card(title,`% of ${fmt(n)} rated students`,n?`<div class="levelRows">${STARS.map(([b,lo,col])=>levelRow(`${b}★ ${b===7?'2500+':b===1?'below 1400':lo+'–'+(STARS[b][1]-1)}`,c[b]||0,n,col)).join('')}</div>`:`<div class="emptyState">No rated students in this filter.</div>`,
-    n?()=>studentsCSV(byDesc(rated,r=>xv(r,key)),[['Rating',r=>xv(r,key)],['Star band',r=>starOf(xv(r,key))+'★'],...CONTEST_COLS]):null)
+  return card(title,`% of ${fmt(n)} rated students`,n?`<div class="levelRows">${STARS.map(([b,lo,col])=>levelRow(`${b}★ ${b===7?'2500+':b===1?'below 1400':lo+'–'+(STARS[b][1]-1)}`,c[b]||0,n,col)).join('')}</div>`:`<div class="emptyState">No rated students in this filter.</div>`)
 }
 
 /* ---------- readiness ---------- */
@@ -516,15 +489,15 @@ const legend=items=>`<div class="legendBox">${items.map((it,i)=>`<div class="leg
 // in every domain, and Not Ready for every job category.
 function placement(f){
   const t=f.length;
-  document.getElementById('secPlacement').innerHTML=head('Placement Readiness','current distribution of domain competency')+
+  document.getElementById('secPlacement').innerHTML=head('Placement Readiness','current distribution of domain competency','secPlacement')+
   legend(LEVELS.map(l=>[l,LEVEL_COLORS[l],LEVEL_DESC[l]]))+`<div class="domainGrid">${COMP_ORDER.map(key=>{const d={Unassigned:t},mx=Math.max(1,t);
-      return `<div class="domainCard"${regDL('placement-'+COMP_LABELS[key],()=>studentsCSV(f,[['Domain',()=>COMP_LABELS[key]],['Level',()=>'Unassigned']]))}><div class="domainCardHeader"><p class="domainName">${COMP_LABELS[key]}</p><span class="domainTotal">${fmt(t)} students</span></div>
+      return `<div class="domainCard"><div class="domainCardHeader"><p class="domainName">${COMP_LABELS[key]}</p><span class="domainTotal">${fmt(t)} students</span></div>
       <div class="levelRows">${LEVELS.map(l=>`<div class="levelRow"><span class="dLevelLabel" style="color:${LEVEL_COLORS[l]}">${l}</span><div class="levelRowTrack"><div class="levelRowFill" style="width:${(d[l]||0)/mx*100}%;background:${LEVEL_COLORS[l]};border-radius:5px;min-width:2px"></div></div><span class="dCount">${fmt(d[l]||0)}</span></div>`).join('')}</div></div>`}).join('')}</div>`
 }
 function job(f){
   const t=f.length,jr={not_ready:t},mx=Math.max(1,t);
-  document.getElementById('secJob').innerHTML=head('Job Readiness','students qualifying per company category')+
-  legend(JOB.map(j=>[j[1],j[2]]))+`<div class="barChartList"${regDL('job-readiness',()=>studentsCSV(f,[['Job readiness',()=>'Not Ready']]))}>${JOB.map(j=>{const v=jr[j[0]]||0;return `<div class="barChartRow"><div class="barChartLabelWrap"><span class="barChartLabel" style="color:${j[2]}">${j[1]}</span><span class="barChartDesc">${j[3]}</span></div><div class="barChartTrack"><div class="barChartFill" style="width:${v/mx*100}%;background:${j[2]}"></div></div><span class="barChartCount">${fmt(v)}</span></div>`}).join('')}</div>
+  document.getElementById('secJob').innerHTML=head('Job Readiness','students qualifying per company category','secJob')+
+  legend(JOB.map(j=>[j[1],j[2]]))+`<div class="barChartList">${JOB.map(j=>{const v=jr[j[0]]||0;return `<div class="barChartRow"><div class="barChartLabelWrap"><span class="barChartLabel" style="color:${j[2]}">${j[1]}</span><span class="barChartDesc">${j[3]}</span></div><div class="barChartTrack"><div class="barChartFill" style="width:${v/mx*100}%;background:${j[2]}"></div></div><span class="barChartCount">${fmt(v)}</span></div>`}).join('')}</div>
       <p class="secNote" style="margin:0">Job-ready (any category): <b>0</b> of ${fmt(t)} (0.0%)</p>`
 }
 
@@ -664,7 +637,6 @@ function users(f){
 }
 
 function render(){
-  for(const k in DL_REG)delete DL_REG[k];
   buildFaculty();buildChips();buildSection();const f=filtered();
   pageHeader(f);common(f);
   pathSections(f);
@@ -679,7 +651,7 @@ document.getElementById('uSearch').oninput=e=>{st.q=e.target.value;st.limit=200;
 /* ---------- Excel workbook: the report's datasets for the current filter, one sheet each ---------- */
 // Summary = every tile on the page as it is rendered now; the other sheets are the same builders the click
 // downloads use, so a sheet and the matching CSV always agree.
-const summaryIntro=()=>[['CU Academic Progress Report'],['Filter',filterLabel().join(' · ')||'All CU students'],
+const summaryIntro=title=>[['CU Academic Progress Report'+(title?' · '+title:'')],['Filter',filterLabel().join(' · ')||'All CU students'],
   ['Activity since',X.since||'lifetime'],['Data as of',X.asof],[]];
 function summarySheet(){
   const rs=[];
@@ -690,8 +662,6 @@ function summarySheet(){
   return [['Section','Metric','Value'],rs]}
 function workbookSheets(f){
   const cBase=f.filter(r=>r.ap.some(([p])=>CIDS.has(p)));
-  const secSheet=(key,noun,list,started,completed)=>studentsCSV(byDesc(list,r=>saw(r,key,2)*1e6+(xv(r,key+'_solved')||0)),
-    [...secRecentCols(key,noun),...pathCols(key,noun,started,completed)]);
   const touched=(key,started)=>f.filter(r=>(xv(r,key+'_subs')||0)>0||started(r)>0);
   return [
     ['Summary',summarySheet(),summaryIntro()],
@@ -707,6 +677,9 @@ function workbookSheets(f){
     ['Assessments',assessmentsCSV(f)],
     ['Faculty',facultyTableCSV(facSheetRows(f))],
     ['Faculty students',facultyStudentsCSV(facSheetRows(f))]]}
+// one path section's students: recent activity there first, then its problems, time, accuracy and paths
+const secSheet=(key,noun,list,started,completed)=>studentsCSV(byDesc(list,r=>saw(r,key,2)*1e6+(xv(r,key+'_solved')||0)),
+  [...secRecentCols(key,noun),...pathCols(key,noun,started,completed)]);
 // with a faculty picked, the faculty sheets are about that faculty only (not everyone who shares their students)
 const facSheetRows=f=>facultyRows(f).filter(x=>st.fac===''||x.i===+st.fac);
 // [headers, rows] -> worksheet, with optional intro lines above the header: numeric text becomes numbers
@@ -723,17 +696,60 @@ function toSheet([hdr,rows],intro=[]){
     widths[ci]=Math.max(widths[ci]||6,Math.min(50,String(m?m[2]:v??'').length+2))}));
   ws['!cols']=widths.map(w=>({wch:w}));
   return ws}
-document.getElementById('downloadXlsxBtn').onclick=()=>{
+// builds [[sheet name, [headers, rows], intro lines?]] into an .xlsx; btn shows progress while it works
+function writeWorkbook(getSheets,filename,btn){
   if(typeof XLSX==='undefined'){alert('The Excel library could not be loaded. Check your internet connection.');return}
-  const btn=document.getElementById('downloadXlsxBtn'),lbl=btn.querySelector('span'),orig=lbl.textContent;
-  btn.disabled=true;lbl.textContent='Preparing Excel...';
+  const lbl=btn.querySelector('span')||btn,orig=lbl.textContent;
+  btn.disabled=true;lbl.textContent='Preparing...';
   setTimeout(()=>{   // let the button repaint before the work
     try{
       const wb=XLSX.utils.book_new();
-      workbookSheets(filtered()).forEach(([name,data,intro])=>XLSX.utils.book_append_sheet(wb,toSheet(data,intro),name.slice(0,31)));
-      XLSX.writeFile(wb,`CU-academic-progress_${filterSlug()}.xlsx`,{compression:true});
+      getSheets().forEach(([name,data,intro])=>XLSX.utils.book_append_sheet(wb,toSheet(data,intro),name.slice(0,31)));
+      XLSX.writeFile(wb,filename,{compression:true});
     }catch(e){console.error(e);alert('Could not generate the Excel file.')}
-    btn.disabled=false;lbl.textContent=orig},30)};
+    btn.disabled=false;lbl.textContent=orig},30)}
+document.getElementById('downloadXlsxBtn').onclick=e=>writeWorkbook(()=>workbookSheets(filtered()),`CU-academic-progress_${filterSlug()}.xlsx`,e.currentTarget);
+
+/* ---------- one Download Excel per section: a Summary of what the section shows, then the rows behind it ---------- */
+const numOr=v=>/^[\d,]+(\.\d+)?$/.test(v)?+v.replace(/,/g,''):v;   // "9,625" -> 9625; "62.3%", "4m" stay as shown
+const txt=(el,sel)=>{const x=sel?el.querySelector(sel):el;return x?x.textContent.trim():''};
+// every tile, bar, path row and figure of a rendered section, in page order: Part | Item | Value | Share / detail
+function secSummary(id){
+  const sec=document.getElementById(id),secTitle=txt(sec,'.sectionTitle'),rs=[];
+  sec.querySelectorAll('.tile, .card, .labSummary, .labProgress, .domainCard, .barChartList').forEach(el=>{
+    if(el.classList.contains('tile')){rs.push(['Overview',txt(el,'.l'),numOr(txt(el,'.v')),'']);return}
+    const part=txt(el,'.cardTitle, .labSummaryTitle, .labProgressTitle, .domainName')||secTitle;
+    el.querySelectorAll('.levelRow').forEach(r=>{const c=txt(r,'.levelRowCount, .dCount'),i=c.indexOf(' ');
+      rs.push([part,txt(r,'.levelRowLabel, .dLevelLabel'),numOr(i<0?c:c.slice(0,i)),i<0?'':c.slice(i+1)])});
+    el.querySelectorAll('.labSectionRow').forEach(r=>rs.push([part,txt(r,'.labSectionCode'),numOr(txt(r,'.labSectionPct')),r.title||txt(r,'.labSectionStudents')]));
+    el.querySelectorAll('.labMeta > div').forEach(d=>{const v=txt(d,'.labMetaValue'),i=v.indexOf(' ');
+      rs.push([part,txt(d,'.labMetaLabel'),numOr(i<0?v:v.slice(0,i)),i<0?'':v.slice(i+1)])});
+    el.querySelectorAll('.barChartRow').forEach(r=>rs.push([part,txt(r,'.barChartLabel'),numOr(txt(r,'.barChartCount')),txt(r,'.barChartDesc')]))});
+  return [['Part','Item','Value','Share / detail'],rs]}
+// per path section: X key, noun, paths started / completed per student, which solves count, practice flag
+const PATHSEC={secCollege:['cl','college',r=>cpCount(r,1),r=>cpCount(r,2),e=>CCONT.has(e[1])],
+  secLearning:['lp','learning',r=>r.m[1],r=>r.m[2],e=>e[2]==='learning',0],secPractice:['pp','practice',r=>r.m[3],r=>r.m[4],e=>e[2]==='practice',1]};
+function sectionSheets(id,f){
+  const title=txt(document.getElementById(id),'.sectionTitle'),S=['Summary',secSummary(id),summaryIntro(title)];
+  if(id==='secCommon')return [S,
+    ['Students',studentsCSV(byDesc(f,r=>r.m[0]),[['Range',r=>BUCKETS[r.b][0]+' problems'],...COMMON_COLS,...RECENT_COLS.slice(0,7),...LOGIN_COLS])],
+    ['Problems solved',problemsCSV(f)]];
+  if(PATHSEC[id]){const [key,noun,started,completed,keep,practice]=PATHSEC[id];
+    const base=id==='secCollege'?f.filter(r=>r.ap.some(([p])=>CIDS.has(p))):f;
+    return [S,['Students',secSheet(key,noun,base,started,completed)],
+      id==='secCollege'?['Paths assigned',assignedPathsCSV(f,CIDS)]:['Paths started',pathStartsCSV(f,practice)],
+      ['Problems solved',problemsCSV(base,keep)]]}
+  if(id==='secContest'){const star=k=>r=>xn(r,k)===''?'':starOf(xv(r,k))+'★';
+    const rated=xm(f).filter(r=>xn(r,'rating')!==''||xn(r,'dsa_rating')!=='');
+    return [S,['Contests & assessments',participationCSV(f)],['Assessments',assessmentsCSV(f)],
+      ['Problems solved',problemsCSV(f,e=>THREE.has(e[2]),true)],
+      ['Rated students',studentsCSV(byDesc(rated,r=>xv(r,'rating')),[['CodeChef stars',star('rating')],['DSA Monday band',star('dsa_rating')],...CONTEST_COLS])]]}
+  if(id==='secPlacement')return [S,['Students',studentsCSV(f,COMP_ORDER.map(k=>[COMP_LABELS[k],()=>'Unassigned']))]];
+  if(id==='secJob')return [S,['Students',studentsCSV(f,[['Job readiness',()=>'Not Ready']])]];
+  return [S]}
+document.addEventListener('click',e=>{const b=e.target.closest('.secDl');if(!b)return;
+  const id=b.dataset.sec;
+  writeWorkbook(()=>sectionSheets(id,filtered()),`CU-${slug(txt(document.getElementById(id),'.sectionTitle'))}_${filterSlug()}.xlsx`,b)});
 render();
 </script>
 </body>
