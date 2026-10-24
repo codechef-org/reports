@@ -80,7 +80,7 @@
   .tableWrap{overflow-x:auto;border:1px solid var(--border-light);border-radius:8px}
   table{border-collapse:collapse;width:100%;font-size:13px}
   th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border-light);white-space:nowrap}
-  th{background:var(--legend-bg);font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-muted);font-weight:700;cursor:pointer;user-select:none;position:sticky;top:0}
+  th{white-space:normal;min-width:64px;max-width:150px;vertical-align:bottom;background:var(--legend-bg);font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-muted);font-weight:700;cursor:pointer;user-select:none;position:sticky;top:0}
   th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
   th[aria-sort="ascending"]::after{content:" ▲"} th[aria-sort="descending"]::after{content:" ▼"}
   tbody tr:hover{background:#FAFBFD}
@@ -208,9 +208,9 @@ function renderFilters() {
 
 function renderHeader() {
   const m = selMax(), one = st.a !== 'all' ? A[st.a] : null;
-  $('formula').innerHTML = `<span class="pill">Coding /${m.coding}</span><span class="op">+</span><span class="pill">Viva /${m.viva}</span><span class="op">+</span>` +
-    `<span class="pill">Path /${m.path}</span><span class="op">=</span><span class="pill">Total /${m.total}</span>` +
-    `<span class="secNote">Coding = better of judge and AI marks per problem · Path = ${A.every(a => !a.pp_total) ? 'Learning path %' : '(Learning path % + Practice path %) ÷ 2'} × ${A[0].path_max}` +
+  $('formula').innerHTML = `<span class="pill">Learning path progress /${m.path}</span><span class="op">+</span><span class="pill">Coding /${m.coding}</span><span class="op">+</span>` +
+    `<span class="pill">Viva /${m.viva}</span><span class="op">=</span><span class="pill">Total /${m.total}</span>` +
+    `<span class="secNote">Learning path progress = ${A.every(a => !a.pp_total) ? 'Learning path %' : '(Learning path % + Practice path %) ÷ 2'} × ${A[0].path_max} · Coding = better of judge and AI marks per problem` +
     (one ? ` · LP: ${esc(one.lp_label)} (${one.lp_total} problems) · ${one.pp_total ? `PP: ${esc(one.pp_label)} (${one.pp_total} problems)` : 'no practice part'} · Contest ${esc(one.contest)}` : ` · ${A.length} assessments added up`) + `</span>`;
 }
 
@@ -226,7 +226,7 @@ function renderOverview(R) {
     tile('Avg total', `${r1(avg(T.map(r => r.total)))} <small>/ ${m.total}</small>`, 'students who took it') +
     tile('Avg coding', `${r1(avg(T.map(r => r.coding)))} <small>/ ${m.coding}</small>`) +
     tile('Avg viva', `${r1(avg(T.map(r => r.viva)))} <small>/ ${m.viva}</small>`) +
-    tile('Avg path', `${r1(avg(R.map(r => r.path)))} <small>/ ${m.path}</small>`, 'all students') +
+    tile('Avg learning path progress', `${r1(avg(R.map(r => r.path)))} <small>/ ${m.path}</small>`, 'all students') +
     tile('Learning path done', `${R.filter(r => m.lp && r.lp >= m.lp).length}`, `all ${m.lp} problems solved`) +
     (m.pp ? tile('Practice path done', `${R.filter(r => r.pp >= m.pp).length}`, `all ${m.pp} problems solved`) : '');
 
@@ -245,7 +245,7 @@ function renderOverview(R) {
   $('meters').innerHTML =
     meter('Coding', avg(T.map(r => r.coding)), m.coding) +
     meter('Viva (short answer)', avg(T.map(r => r.viva)), m.viva) +
-    meter('Path (all students)', avg(R.map(r => r.path)), m.path) +
+    meter('Learning path progress (all students)', avg(R.map(r => r.path)), m.path) +
     `<div class="secNote">Learning path ${Math.round(avg(R.map(r => r.lpPct)))}% · Practice path ${Math.round(avg(R.map(r => r.ppPct)))}% average completion (all students)</div>`;
 }
 
@@ -282,8 +282,8 @@ function classRows(R) {
 function renderClass(R) {
   const m = selMax();
   const cols = [['cls', 'Class'], ['n', 'Students', 1], ['att', 'Attempted', 1, d => `${d.att} <span class="secNote">(${d.attPct}%)</span>`],
-    ['coding', `Avg coding /${m.coding}`, 1], ['viva', `Avg viva /${m.viva}`, 1], ['lpPct', 'LP %', 1], ['ppPct', 'PP %', 1],
-    ['path', `Avg path /${m.path}`, 1], ['total', `Avg total /${m.total}`, 1, d => `<b>${d.total}</b><span class="bar"><i style="width:${100 * d.total / m.total}%"></i></span>`]];
+    ['path', `Avg learning path progress /${m.path}`, 1], ['coding', `Avg coding /${m.coding}`, 1], ['viva', `Avg viva /${m.viva}`, 1],
+    ['total', `Avg total /${m.total}`, 1, d => `<b>${d.total}</b><span class="bar"><i style="width:${100 * d.total / m.total}%"></i></span>`]];
   const data = table($('classTable'), 'cls', cols, classRows(R));
   tbody($('classTable'), cols, data);
 }
@@ -300,9 +300,8 @@ function renderStudents(R) {
     ['user', 'Username', 0, d => `<a href="https://www.codechef.com/users/${esc(d.user)}" target="_blank" rel="noopener">${esc(d.user)}</a>`],
     ['cls', 'Class'], ['div', 'Div'],
     ['att', all ? 'Taken' : 'Status', 1, d => all ? `${d.r.taken}/${A.length}` : (d.att ? '<span class="tag ok">Attempted</span>' : '<span class="tag no">Not attempted</span>')],
-    ['cj', 'Judge', 1, d => `<span class="secNote">${d.cj}</span>`], ['ca', 'AI', 1, d => `<span class="secNote">${d.ca}</span>`],
-    ['coding', `Coding /${m.coding}`, 1, d => `<b>${d.coding}</b>`], ['viva', `Viva /${m.viva}`, 1],
-    ['lp', `LP /${m.lp}`, 1], ['pp', `PP /${m.pp}`, 1], ['path', `Path /${m.path}`, 1],
+    ['path', `Learning path progress /${m.path}`, 1, d => `${d.path}<span class="secNote" data-tip="Problems solved: learning path ${d.lp}/${m.lp}${m.pp ? `, practice path ${d.pp}/${m.pp}` : ''}"> (${d.lp + d.pp}/${m.lp + m.pp})</span>`],
+    ['coding', `Coding /${m.coding}`, 1], ['viva', `Viva /${m.viva}`, 1],
     ['total', `Total /${m.total}`, 1, d => `<b>${d.total}</b>`]];
   if (all) A.forEach((a, i) => cols.push(['w' + i, `${a.name} /${maxOf(a).total}`, 1]));
   let data = stuData(R);
@@ -311,7 +310,7 @@ function renderStudents(R) {
   const pages = Math.max(1, Math.ceil(data.length / PER));
   st.page = Math.min(st.page, pages - 1);
   tbody($('stuTable'), cols, data.slice(st.page * PER, (st.page + 1) * PER));
-  $('pager').innerHTML = `<span>${data.length} students${all ? ' · * = did not take that week (path marks only)' : ''}</span>` +
+  $('pager').innerHTML = `<span>${data.length} students${all ? ' · * = did not take that week (learning path progress only)' : ''}</span>` +
     `<span><button id="pPrev" ${st.page ? '' : 'disabled'}>‹ Prev</button> Page ${st.page + 1} of ${pages} <button id="pNext" ${st.page < pages - 1 ? '' : 'disabled'}>Next ›</button></span>`;
   $('pPrev').onclick = () => { st.page--; renderStudents(rows()); };
   $('pNext').onclick = () => { st.page++; renderStudents(rows()); };
@@ -331,8 +330,8 @@ let CR;
 function renderCohorts() {
   CR = CR || cohortRows();
   const cols = [['cohort', 'Cohort'], ['weeks', 'Assessments'], ['n', 'Students', 1], ['att', 'Attempted', 1, d => `${d.att} <span class="secNote">(${d.attPct}%)</span>`],
+    ['pathPct', 'Avg learning path progress', 1, d => `${d.path} <span class="secNote">/ ${d.m.path}</span>`],
     ['codingPct', 'Avg coding', 1, d => `${d.coding} <span class="secNote">/ ${d.m.coding}</span>`], ['vivaPct', 'Avg viva', 1, d => `${d.viva} <span class="secNote">/ ${d.m.viva}</span>`],
-    ['pathPct', 'Avg path', 1, d => `${d.path} <span class="secNote">/ ${d.m.path}</span>`],
     ['totalPct', 'Avg total %', 1, d => `<b>${d.totalPct}%</b> <span class="secNote">${d.total} / ${d.m.total}</span><span class="bar"><i style="width:${d.totalPct}%"></i></span>`]];
   const data = table($('cohortTable'), 'co', cols, CR);
   tbody($('cohortTable'), cols, data);
@@ -357,9 +356,8 @@ function studentSheet(R) {
       const w = wk(a, r.s), p = a.name + ' ';
       if (st.a !== 'all' && st.a !== i) return;
       Object.assign(base, {[p + 'Attempted']: w.att ? 'Yes' : 'No', [p + 'Paper']: w.paper || '',
-        [p + `Coding judge /${a.coding_max}`]: w.cj, [p + `Coding AI /${a.coding_max}`]: w.ca, [p + `Coding best /${a.coding_max}`]: w.coding, [p + `Viva /${a.viva_max}`]: w.viva,
-        [p + `LP solved /${a.lp_total}`]: w.lp, [p + 'LP %']: r1(w.lpPct), [p + `PP solved /${a.pp_total}`]: w.pp, [p + 'PP %']: r1(w.ppPct),
-        [p + `Path /${a.path_max}`]: w.path, [p + `Total /${maxOf(a).total}`]: w.total});
+        [p + `Learning path progress /${a.path_max}`]: w.path, [p + `Coding /${a.coding_max}`]: w.coding, [p + `Viva /${a.viva_max}`]: w.viva,
+        [p + `Total /${maxOf(a).total}`]: w.total});
     });
     if (st.a === 'all' && A.length > 1) base[`Overall /${selMax().total}`] = r.total;
     out.push(base);
@@ -369,8 +367,8 @@ function studentSheet(R) {
 function classSheet(R) {
   const m = selMax();
   return classRows(R).sort((a, b) => a.cls.localeCompare(b.cls)).map(d => ({'Class': d.cls, 'Students': d.n, 'Attempted': d.att, 'Attempted %': d.attPct,
-    [`Avg coding /${m.coding}`]: d.coding, [`Avg viva /${m.viva}`]: d.viva, 'LP %': d.lpPct, 'PP %': d.ppPct,
-    [`Avg path /${m.path}`]: d.path, [`Avg total /${m.total}`]: d.total}));
+    [`Avg learning path progress /${m.path}`]: d.path, [`Avg coding /${m.coding}`]: d.coding, [`Avg viva /${m.viva}`]: d.viva,
+    [`Avg total /${m.total}`]: d.total}));
 }
 function filterNote() {
   return [st.a === 'all' ? 'All weeks' : A[st.a].name, st.cls || 'All classes', st.div ? 'Div ' + st.div : 'All divisions', st.q ? `search "${st.q}"` : ''].filter(Boolean).join(' · ');
@@ -379,8 +377,8 @@ function download(kind) {
   const R = rows(), wb = XLSX.utils.book_new();
   const add = (name, data) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.length ? data : [{}]), name);
   if (kind === 'cohorts' || kind === 'all') add('Cohort-wise', (CR || cohortRows()).map(d => ({'Cohort': d.cohort, 'Assessments': d.weeks, 'Students': d.n,
-    'Attempted': d.att, 'Attempted %': d.attPct, 'Avg coding': d.coding, 'Coding max': d.m.coding, 'Avg viva': d.viva, 'Viva max': d.m.viva,
-    'Avg path': d.path, 'Path max': d.m.path, 'Avg total': d.total, 'Total max': d.m.total, 'Avg total %': d.totalPct})));
+    'Attempted': d.att, 'Attempted %': d.attPct, 'Avg learning path progress': d.path, 'Learning path max': d.m.path,
+    'Avg coding': d.coding, 'Coding max': d.m.coding, 'Avg viva': d.viva, 'Viva max': d.m.viva, 'Avg total': d.total, 'Total max': d.m.total, 'Avg total %': d.totalPct})));
   if (kind === 'cohorts') return XLSX.writeFile(wb, `${D.title} - Cohort-wise.xlsx`);
   if (kind !== 'students') add('Class-wise', classSheet(R));
   if (kind !== 'class') add('Students', studentSheet(stuData(R).map(d => d.r)));
@@ -416,9 +414,9 @@ document.addEventListener('mousemove', e => {
   tip.textContent = t.dataset.tip; tip.hidden = false;
   tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY - 34) + 'px';
 });
-$('foot').innerHTML = `Coding = for each code problem, the better of the judge's marks (test cases passed) and the AI evaluation's marks (best AI-evaluated submission made before the assessment score was computed, as in the site's assessment report); Judge / AI columns show each one summed over the paper. Viva = marks on the short-answer problems (AI-graded by the site). ` +
-  `LP / PP = problems solved on that week's learning-path sub-module and practice module (concept lessons not counted), lifetime as of the data date, so they keep rising after the assessment. ` +
-  `Not attempted = no attempt on the assessment; those students still get their path marks. Cohorts with no practice part on the path take path marks from the learning path alone.`;
+$('foot').innerHTML = `Coding = for each code problem, the better of the judge's marks (test cases passed) and the AI evaluation's marks (best AI-evaluated submission made before the assessment score was computed, as in the site's assessment report); Viva = marks on the short-answer problems (AI-graded by the site). ` +
+  `Learning path progress = marks for problems solved on that week's learning-path and practice-path modules (concept lessons not counted; the bracket shows problems solved / total), lifetime as of the data date, so it keeps rising after the assessment. ` +
+  `Not attempted = no attempt on the assessment; those students still get their learning path progress marks. Cohorts with no practice part on the path take learning path progress from the learning path alone.`;
 setCohort(Math.max(0, CO.findIndex(c => '#' + c.path_slug === location.hash)));
 </script>
 </body>
