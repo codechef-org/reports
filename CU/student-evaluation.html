@@ -96,7 +96,7 @@
 <body>
 <div class="topbar">
   <h1 id="title"></h1>
-  <button class="btn" id="dlAll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg>Download Excel</button>
+  <button class="btn needC" id="dlAll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg>Download Excel</button>
 </div>
 <div class="contentOuter"><div class="content">
   <div class="pageHeader">
@@ -107,15 +107,15 @@
   <div class="filters">
     <div class="fgroup"><span class="flabel">Block</span><div class="chips" id="fBlock"></div></div>
     <div class="fgroup" id="gYear"><span class="flabel">Year</span><div class="chips" id="fYear"></div></div>
-    <div class="fgroup"><span class="flabel">Course</span><div class="chips" id="fCourse"></div></div>
-    <div class="fgroup"><span class="flabel">Assessment</span><div class="chips" id="fAssess"></div></div>
-    <div class="fgroup"><span class="flabel">Class</span><select id="fClass"></select></div>
-    <div class="fgroup"><span class="flabel">Division</span><div class="chips" id="fDiv"></div></div>
-    <div class="fgroup"><span class="flabel">Search</span><input type="search" id="fSearch" placeholder="Name, roll no or username"></div>
-    <button class="reset" id="reset">Reset</button>
+    <div class="fgroup" id="gCourse"><span class="flabel">Course</span><div class="chips" id="fCourse"></div></div>
+    <div class="fgroup needC"><span class="flabel">Assessment</span><div class="chips" id="fAssess"></div></div>
+    <div class="fgroup needC"><span class="flabel">Class</span><select id="fClass"></select></div>
+    <div class="fgroup needC"><span class="flabel">Division</span><div class="chips" id="fDiv"></div></div>
+    <div class="fgroup needC"><span class="flabel">Search</span><input type="search" id="fSearch" placeholder="Name, roll no or username"></div>
+    <button class="reset needC" id="reset">Reset</button>
   </div>
 
-  <section class="box">
+  <section class="box needC">
     <div class="secHead"><h3 class="sectionTitle">Overview</h3><span class="secNote" id="ovNote"></span></div>
     <div class="tiles" id="tiles"></div>
     <div class="two">
@@ -124,7 +124,7 @@
     </div>
   </section>
 
-  <section class="box">
+  <section class="box needC">
     <div class="secHead"><h3 class="sectionTitle">Student-wise</h3>
       <div class="chips" id="fStatus"></div>
       <button class="btn ghost" data-dl="students">Download Excel</button></div>
@@ -326,6 +326,8 @@ document.title = D.title;
 // switch cohort: filters reset, the choice kept in the URL (#path-slug) so a link opens that cohort
 function setCohort(i) {
   C = i; A = CO[i].assessments; S = CO[i].uids.map(u => D.students[u]);
+  Object.assign(pk, {block: CO[i].block, year: CO[i].year, course: CO[i].course});
+  showCohort(true);
   Object.assign(st, {a: A.length > 1 ? 'all' : 0, cls: '', div: '', q: '', status: 'all', page: 0});
   $('fSearch').value = '';
   renderPicker();
@@ -336,24 +338,35 @@ function setCohort(i) {
   history.replaceState(null, '', '#' + CO[i].path_slug);
   render();
 }
-// Block -> Year -> Course picks the cohort; changing block or year keeps the course when that block / year has it
+// Block -> Year -> Course picks the cohort. Nothing is picked when the page opens (unless the URL names a cohort);
+// changing block or year keeps the year / course when the new block / year has it
 const uniq = xs => [...new Set(xs)];
 const BLOCKS = uniq(CO.map(c => c.block)).sort((a, b) => (['B1', 'B3', 'C2', 'AIT', 'ME'].indexOf(a) + 1 || 99) - (['B1', 'B3', 'C2', 'AIT', 'ME'].indexOf(b) + 1 || 99));
+const pk = {block: '', year: null, course: ''};   // year null = not picked ('' is a real year: ME has none)
+const yearsOf = b => uniq(CO.filter(c => c.block === b).map(c => c.year)).sort();
 function pick(block, year, course) {
-  const inB = CO.filter(c => c.block === block);
-  const years = uniq(inB.map(c => c.year)).sort();
-  if (!years.includes(year)) year = years[0];
-  const inY = inB.filter(c => c.year === year);
-  const c = inY.find(c => c.course === course) || inY[0];
-  setCohort(CO.indexOf(c));
+  const ys = yearsOf(block);
+  if (ys.length === 1 && !ys[0]) year = '';   // block without years: nothing to choose
+  else if (!ys.includes(year)) year = null;
+  const c = year === null ? null : CO.find(x => x.block === block && x.year === year && x.course === course);
+  Object.assign(pk, {block, year, course: c ? course : ''});
+  if (c) setCohort(CO.indexOf(c)); else clearCohort();
+}
+function showCohort(on) { document.querySelectorAll('.needC').forEach(e => e.hidden = !on); }
+function clearCohort() {
+  C = null;
+  renderPicker(); showCohort(false);
+  $('cohortName').textContent = 'Select a block, year and course';
+  $('asof').textContent = `Data as of ${D.asof}`;
+  history.replaceState(null, '', location.pathname + location.search);
 }
 function renderPicker() {
-  const c = CO[C], inB = CO.filter(x => x.block === c.block);
-  const years = uniq(inB.map(x => x.year)).sort();
-  chips($('fBlock'), BLOCKS.map(b => [b, b]), c.block, v => pick(v, c.year, c.course));
-  $('gYear').hidden = years.length < 2 && !years[0];
-  chips($('fYear'), years.map(y => [y, y]), c.year, v => pick(c.block, v, c.course));
-  chips($('fCourse'), inB.filter(x => x.year === c.year).map(x => [x.course, x.course]), c.course, v => pick(c.block, c.year, v));
+  const years = pk.block ? yearsOf(pk.block) : [];
+  chips($('fBlock'), BLOCKS.map(b => [b, b]), pk.block, v => pick(v, pk.year, pk.course));
+  $('gYear').hidden = !pk.block || (years.length === 1 && !years[0]);
+  chips($('fYear'), years.map(y => [y, y]), pk.year, v => pick(pk.block, v, pk.course));
+  $('gCourse').hidden = pk.year === null;
+  chips($('fCourse'), pk.year === null ? [] : CO.filter(x => x.block === pk.block && x.year === pk.year).map(x => [x.course, x.course]), pk.course, v => pick(pk.block, pk.year, v));
 }
 $('fClass').onchange = e => { st.cls = e.target.value; st.page = 0; render(); };
 let qt; $('fSearch').oninput = e => { clearTimeout(qt); qt = setTimeout(() => { st.q = e.target.value.trim(); st.page = 0; render(); }, 150); };
@@ -370,7 +383,8 @@ $('foot').innerHTML = `Marks follow each block's split (B1, B3, C2, ME: Learning
   `Coding = for each code problem, the better of the judge's marks (test cases passed) and the AI evaluation's marks (best AI-evaluated submission made before the assessment score was computed, as in the site's assessment report); Viva = marks on the short-answer problems (AI-graded by the site). ` +
   `Learning path progress = marks for problems solved on that week's learning-path and practice-path modules (concept lessons not counted; the bracket shows problems solved / total), lifetime as of the data date, so it keeps rising after the assessment. ` +
   `Not attempted = no attempt on the assessment; those students still get their learning path progress marks. Cohorts with no practice part on the path take learning path progress from the learning path alone.`;
-setCohort(Math.max(0, CO.findIndex(c => '#' + c.path_slug === location.hash)));
+const fromUrl = CO.findIndex(c => '#' + c.path_slug === location.hash);
+if (fromUrl >= 0) setCohort(fromUrl); else clearCohort();
 </script>
 </body>
 </html>
