@@ -44,6 +44,11 @@
   select,input[type=search]{font:inherit;font-size:13px;font-weight:600;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink);width:220px;max-width:100%}
   input[type=search]{font-weight:500}
   .reset{font:inherit;font-size:13px;font-weight:600;background:var(--accent-soft);border:none;color:var(--accent);cursor:pointer;padding:7px 12px;border-radius:6px}
+  .filters select{width:auto;min-width:110px;max-width:190px;cursor:pointer}
+  .filters input[type=search]{width:230px}
+  .filters select,.filters input[type=search]{height:32px;box-sizing:border-box}
+  .filters select:disabled,.filters input:disabled{opacity:.45;cursor:not-allowed}
+  .filters .grow{flex:1}
 
   section.box{display:flex;flex-direction:column;gap:16px;padding:24px;border:1px solid var(--border);border-radius:10px;min-width:0}
   .secHead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px}
@@ -105,14 +110,15 @@
   </div>
 
   <div class="filters">
-    <div class="fgroup"><span class="flabel">Block</span><div class="chips" id="fBlock"></div></div>
-    <div class="fgroup" id="gYear"><span class="flabel">Year</span><div class="chips" id="fYear"></div></div>
-    <div class="fgroup" id="gCourse"><span class="flabel">Course</span><div class="chips" id="fCourse"></div></div>
-    <div class="fgroup needC"><span class="flabel">Assessment</span><div class="chips" id="fAssess"></div></div>
-    <div class="fgroup needC"><span class="flabel">Class</span><select id="fClass"></select></div>
-    <div class="fgroup needC"><span class="flabel">Division</span><div class="chips" id="fDiv"></div></div>
-    <div class="fgroup needC"><span class="flabel">Search</span><input type="search" id="fSearch" placeholder="Name, roll no or username"></div>
-    <button class="reset needC" id="reset">Reset</button>
+    <div class="fgroup"><label class="flabel" for="fBlock">Block</label><select id="fBlock"></select></div>
+    <div class="fgroup"><label class="flabel" for="fYear">Year</label><select id="fYear"></select></div>
+    <div class="fgroup"><label class="flabel" for="fCourse">Course</label><select id="fCourse"></select></div>
+    <div class="fgroup"><label class="flabel" for="fAssess">Assessment</label><select id="fAssess" class="inC"></select></div>
+    <div class="fgroup"><label class="flabel" for="fClass">Class</label><select id="fClass" class="inC"></select></div>
+    <div class="fgroup"><label class="flabel" for="fDiv">Division</label><select id="fDiv" class="inC"></select></div>
+    <div class="fgroup"><label class="flabel" for="fSearch">Search</label><input type="search" id="fSearch" class="inC" placeholder="Name, roll no or username"></div>
+    <span class="grow"></span>
+    <button class="reset" id="reset">Clear filters</button>
   </div>
 
   <section class="box needC">
@@ -186,11 +192,15 @@ function chips(el, opts, cur, on) {
   el.querySelectorAll('.chip').forEach(b => b.onclick = () => on(b.dataset.v));
 }
 
+// <select> options from [value, label] pairs, cur selected
+function opts(el, list, cur) {
+  el.innerHTML = list.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(l)}</option>`).join('');
+}
 function renderFilters() {
   const ao = A.map((a, i) => [i, a.name]);
   if (A.length > 1) ao.unshift(['all', 'All weeks']);
-  chips($('fAssess'), ao, st.a, v => { st.a = v === 'all' ? 'all' : +v; st.page = 0; render(); });
-  chips($('fDiv'), [['', 'All'], ...[...new Set(S.map(s => s.div).filter(Boolean))].sort().map(d => [d, d])], st.div, v => { st.div = v; st.page = 0; render(); });
+  opts($('fAssess'), ao, st.a);
+  opts($('fDiv'), [['', 'All divisions'], ...[...new Set(S.map(s => s.div).filter(Boolean))].sort().map(d => [d, d])], st.div);
   chips($('fStatus'), [['all', 'All'], ['att', 'Attempted'], ['not', 'Not attempted']], st.status, v => { st.status = v; st.page = 0; render(); });
 }
 
@@ -334,43 +344,63 @@ function setCohort(i) {
   $('cohortName').textContent = CO[i].cohort;
   $('asof').textContent = `Data as of ${D.asof} · ${S.length} students`;
   const classes = [...new Set(S.map(s => s.cls).filter(Boolean))].sort();
-  $('fClass').innerHTML = '<option value="">All classes</option>' + classes.map(c => `<option>${esc(c)}</option>`).join('');
+  opts($('fClass'), [['', 'All classes'], ...classes.map(c => [c, c])], '');
   history.replaceState(null, '', '#' + CO[i].path_slug);
   render();
 }
-// Block -> Year -> Course picks the cohort. Nothing is picked when the page opens (unless the URL names a cohort);
-// changing block or year keeps the year / course when the new block / year has it
+// Block, Year and Course are always shown and can be picked in any order: Block lists every block, Year the picked
+// block's years, Course the courses in the picked block / year; a pick clears the others it rules out, and the cohort
+// opens once the picks narrow to one. Nothing is picked when the page opens (unless the URL names a cohort).
+// Year '' = a block without years (ME).
 const uniq = xs => [...new Set(xs)];
-const BLOCKS = uniq(CO.map(c => c.block)).sort((a, b) => (['B1', 'B3', 'C2', 'AIT', 'ME'].indexOf(a) + 1 || 99) - (['B1', 'B3', 'C2', 'AIT', 'ME'].indexOf(b) + 1 || 99));
+const ORDER = ['B1', 'B3', 'C2', 'AIT', 'ME'];
 const pk = {block: '', year: null, course: ''};   // year null = not picked ('' is a real year: ME has none)
-const yearsOf = b => uniq(CO.filter(c => c.block === b).map(c => c.year)).sort();
-function pick(block, year, course) {
-  const ys = yearsOf(block);
-  if (ys.length === 1 && !ys[0]) year = '';   // block without years: nothing to choose
-  else if (!ys.includes(year)) year = null;
-  const c = year === null ? null : CO.find(x => x.block === block && x.year === year && x.course === course);
-  Object.assign(pk, {block, year, course: c ? course : ''});
-  if (c) setCohort(CO.indexOf(c)); else clearCohort();
+const fits = (c, p) => (!p.block || c.block === p.block) && (p.year === null || c.year === p.year) && (!p.course || c.course === p.course);
+const optsFor = k => {
+  if (k === 'block') return uniq(CO.map(c => c.block)).sort((a, b) => (ORDER.indexOf(a) + 1 || 99) - (ORDER.indexOf(b) + 1 || 99));
+  const p = k === 'year' ? {block: pk.block, year: null, course: ''} : {...pk, course: ''};
+  return uniq(CO.filter(c => fits(c, p)).map(c => c[k])).sort();
+};
+function pick(k, v) {
+  pk[k] = k === 'year' ? (v === '*' ? null : v) : v;
+  // drop picks the new one rules out
+  for (const o of ['block', 'year', 'course']) if (o !== k && (o === 'year' ? pk.year !== null : pk[o]) && !optsFor(o).includes(pk[o])) pk[o] = o === 'year' ? null : '';
+  const m = CO.filter(c => fits(c, pk));
+  if (m.length === 1 && pk.course) setCohort(CO.indexOf(m[0]));
+  else { if (C !== null) clearCohort(true); else renderPicker(); }
 }
-function showCohort(on) { document.querySelectorAll('.needC').forEach(e => e.hidden = !on); }
-function clearCohort() {
+function showCohort(on) {
+  document.querySelectorAll('.needC').forEach(e => e.hidden = !on);
+  document.querySelectorAll('.inC').forEach(e => e.disabled = !on);
+}
+function clearCohort(keepPicks) {
   C = null;
+  if (!keepPicks) Object.assign(pk, {block: '', year: null, course: ''});
   renderPicker(); showCohort(false);
+  opts($('fAssess'), [['', 'All weeks']], '');
+  opts($('fClass'), [['', 'All classes']], '');
+  opts($('fDiv'), [['', 'All divisions']], '');
+  $('fSearch').value = '';
   $('cohortName').textContent = 'Select a block, year and course';
   $('asof').textContent = `Data as of ${D.asof}`;
   history.replaceState(null, '', location.pathname + location.search);
 }
 function renderPicker() {
-  const years = pk.block ? yearsOf(pk.block) : [];
-  chips($('fBlock'), BLOCKS.map(b => [b, b]), pk.block, v => pick(v, pk.year, pk.course));
-  $('gYear').hidden = !pk.block || (years.length === 1 && !years[0]);
-  chips($('fYear'), years.map(y => [y, y]), pk.year, v => pick(pk.block, v, pk.course));
-  $('gCourse').hidden = pk.year === null;
-  chips($('fCourse'), pk.year === null ? [] : CO.filter(x => x.block === pk.block && x.year === pk.year).map(x => [x.course, x.course]), pk.course, v => pick(pk.block, pk.year, v));
+  opts($('fBlock'), [['', 'All blocks'], ...optsFor('block').map(b => [b, b])], pk.block);
+  const ys = optsFor('year');
+  const noYear = pk.block && ys.length === 1 && !ys[0];   // ME: nothing to choose
+  opts($('fYear'), noYear ? [['', '–']] : [['*', 'All years'], ...ys.filter(Boolean).map(y => [y, y])], noYear ? '' : (pk.year === null ? '*' : pk.year));
+  $('fYear').disabled = noYear;
+  opts($('fCourse'), [['', 'All courses'], ...optsFor('course').map(c => [c, c])], pk.course);
 }
+$('fBlock').onchange = e => pick('block', e.target.value);
+$('fYear').onchange = e => pick('year', e.target.value);
+$('fCourse').onchange = e => pick('course', e.target.value);
+$('fAssess').onchange = e => { const v = e.target.value; st.a = v === 'all' ? 'all' : +v; st.page = 0; render(); };
+$('fDiv').onchange = e => { st.div = e.target.value; st.page = 0; render(); };
 $('fClass').onchange = e => { st.cls = e.target.value; st.page = 0; render(); };
 let qt; $('fSearch').oninput = e => { clearTimeout(qt); qt = setTimeout(() => { st.q = e.target.value.trim(); st.page = 0; render(); }, 150); };
-$('reset').onclick = () => setCohort(C);
+$('reset').onclick = () => clearCohort();
 $('dlAll').onclick = () => download('all');
 document.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => download(b.dataset.dl));
 document.addEventListener('mousemove', e => {
